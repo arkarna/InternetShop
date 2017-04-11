@@ -1,7 +1,7 @@
 <?php
 /**
  * Smarty plugin to format text blocks
- *ф
+ *
  * @package    Smarty
  * @subpackage PluginsBlock
  */
