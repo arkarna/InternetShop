@@ -1,0 +1,157 @@
+<?php
+	if (check_arg!=1) {	exit; }
+	
+	class lk{
+		public $site_name = 'Весточка с дома';
+		public $site_url = 'http://zkmagaz.ru/';
+		public $site_patch = '/var/www/u0149883/data/www/zkmagaz.ru/';
+		public $charset = 'utf-8';
+		public $page;
+		public $action;
+		public $id;
+		public $post_id;
+		public $post_user_id;
+		public $post_summ;
+		public $user; /* Array $_SESSION['user'] */
+		public $adminkey = '123';
+		/* Данные подключения к бд */
+		private $dbtype = 'mysqli';
+		private $db_host = 'localhost';
+		private $db_user = 'u0149883_zkmagaz';
+		private $db_password = 'P8h8K0b4';
+		private $db_name = 'u0149883_zkmagaz';
+		/* */
+		public function start()
+		{
+			@session_start();
+				/* Получаем данные */	
+			$this->site_patch = '/var/www/u0149883/data/www/zkmagaz.ru/';
+			$this->user = $_SESSION['user'];
+			$this->type = preg_replace("/[^a-z\s]/ui","",$_GET['type']);
+			$this->page = preg_replace("/[^a-z\s]/ui","",$_GET['page']);
+			$this->action = preg_replace("/[^a-z\s]/ui","",$_GET['action']);
+			$this->id = (int)$_GET['id']*1;
+			$this->user_id = (int)$_GET['user_id']*1;
+			$this->post_id = (int)$_POST['id']*1;
+			$this->post_user_id = (int)$_POST['user_id']*1;
+			$this->post_summ = (int)$_POST['summ']*1;
+			$this->date= date('Y-m-d H:i:s');
+			$db = new MySQLi($this->db_host, $this->db_user, $this->db_password, $this->db_name);
+			if(mysqli_connect_errno()){
+				echo mysqli_connect_error();
+			}else{
+				$db->set_charset("utf8");
+				return $db;
+			}
+		}
+		/* Определяем реальный IP */	
+		function GetRealIp()
+		{
+			if (!empty($_SERVER['HTTP_CLIENT_IP'])) 
+			{
+				$ip=$_SERVER['HTTP_CLIENT_IP'];
+			}
+			elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR']))
+			{
+				$ip=$_SERVER['HTTP_X_FORWARDED_FOR'];
+			}
+			else
+			{		
+				$ip=$_SERVER['REMOTE_ADDR'];
+			}	
+			return $ip;
+		}
+		function add_history($db,$user_id,$content,$summ)
+		{
+			$sql_add_history = "INSERT into history (`user_id`,`date`,`comment`,`summ`)
+				values
+				('".$user_id."','".$this->date."','".$content."','".$summ."')";
+			if($db->query($sql_add_history))
+			{
+				return true;
+			}
+			else
+			{
+				return false;
+			}
+		}
+	}
+	#####################################
+	#      Проверка на хацкеров         #
+	#####################################
+	class filter extends lk {
+		public $check_array;
+		public $vowels = array('"',"'",'«','»','<','>','`','/','\\');
+		function check_arrays(){
+			$keys = array_keys($this->check_array);
+			$d = count($this->check_array);
+			for($i = 0; $i < $d; $i++) {
+				$this->check_array[$keys[$i]] = str_replace($this->vowels, '', $this->check_array[$keys[$i]]);
+			}
+		}
+	}
+	
+	
+	#####################################
+	#         Загрузка файлов           #
+	#####################################
+	class download extends lk {
+		public $type;
+		public $document;
+		public $files;
+		private $global_directory;
+		private $directory;
+		private $exs;
+		private $filename;
+		public function get_start($filename){
+			$this->global_directory = $this->site_path . 'archive/'.$this->user['id'] .'/'.$this->type.'/';
+			$this->directory = $this->site_path . 'archive/'.$this->user['id'] .'/'.$this->type.'/'. $this->document .'/';
+			$this->files = $_FILES['load'];
+			$this->type =	preg_replace("/[^a-z\s]/ui","",$this->type);
+			$this->document =	preg_replace("/[^a-z\s]/ui","",$this->document);
+			/* Проверяем существование директорий, если их нет - создаем */
+			if (!file_exists( $this->site_path . 'archive/'.$this->user['id'])) {
+				mkdir( $this->site_path . 'archive/'.$this->user['id'], 0755);
+			}
+			if (!file_exists($this->global_directory)) {
+				mkdir($this->global_directory, 0755);
+			}
+			if (!file_exists($this->directory)) {
+				mkdir($this->directory, 0755);
+			}
+			/* Ищем хацкеров */
+			$blacklist = array(".php", ".phtml", ".php3", ".php4", ".exe", ".js", ".rar", ".tar", ".shtml");
+			foreach ($blacklist as $item) {
+				if(preg_match("/$item\$/i", $this->files['name'])) {
+					echo "Hello, my friend. It's file do  not uploading.\n";
+					exit;
+				}
+			}
+			$exs_full = explode(".", $this->files['name']);
+			$this->exs = end($exs_full);
+			if(strtoupper($this->exs) != 'PNG' && strtoupper($this->exs) != 'JPG' && strtoupper($this->exs) != 'JPEG' && strtoupper($this->exs) != 'DOC'&& strtoupper($this->exs) != 'DOCX')
+			{
+				echo "Hello, my friend. It's file do  not uploading.\n";
+				exit;
+			}
+			if(!empty($filename))
+			{
+				$this->filename = $filename.'.'. $this->exs;
+			}
+			else
+			{
+				$this->filename = $this->type .'_'. $this->user['id'] .'_'. rand(10000000,99999999) .'.'. $this->exs;
+			}
+			/* Щас будет страшно */
+			if (move_uploaded_file($this->files['tmp_name'], $this->directory . $this->filename))
+			{
+				chmod($this->directory . $this->filename,0644);
+				return $this->filename;
+			}
+			else
+			{
+				return false;
+			}
+		}	
+	}
+?>
