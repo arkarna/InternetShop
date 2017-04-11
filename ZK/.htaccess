@@ -1,0 +1,17 @@
+php_value allow_url_fopen Off
+
+RewriteEngine On
+Options -Indexes
+RewriteBase /
+RewriteRule ^.htaccess$ - [F]
+
+AddDefaultCharset UTF-8
+php_value date.timezone Europe/Moscow
+php_flag apc.cache_by_default Off
+
+php_value max_file_uploads 50
+
+ErrorDocument 500 http://zkmagaz.ru/
+ErrorDocument 404 http://zkmagaz.ru/
+ErrorDocument 403 http://zkmagaz.ru/
+
